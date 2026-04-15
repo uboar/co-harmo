@@ -23,6 +23,17 @@ jobs:
       - name: Build
         run: cmake --build --preset mac-debug
 
+      - name: Upload plugin artefacts (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: co-harmo-plugin-macos
+          path: |
+            build/mac-debug/plugin/co-harmo_artefacts/Debug/VST3/**
+            build/mac-debug/plugin/co-harmo_artefacts/Debug/AU/**
+            build/mac-debug/plugin/co-harmo_artefacts/Debug/Standalone/**
+          if-no-files-found: error
+          retention-days: 14
+
   plugin-windows:
     name: Plugin (Windows)
     runs-on: windows-latest
@@ -36,6 +47,16 @@ jobs:
 
       - name: Build
         run: cmake --build --preset win-debug
+
+      - name: Upload plugin artefacts (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: co-harmo-plugin-windows
+          path: |
+            build/win-debug/plugin/co-harmo_artefacts/Debug/VST3/**
+            build/win-debug/plugin/co-harmo_artefacts/Debug/Standalone/**
+          if-no-files-found: error
+          retention-days: 14
 
   webui:
     name: WebUI
@@ -60,6 +81,14 @@ jobs:
       - name: Build
         working-directory: webui
         run: npm run build
+
+      - name: Upload webui bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: co-harmo-webui
+          path: plugin/Resources/web/**
+          if-no-files-found: error
+          retention-days: 14
 
   mcp-server:
     name: MCP Server
@@ -88,6 +117,22 @@ jobs:
       - name: Test
         working-directory: mcp-server
         run: npm test
+
+      - name: Pack npm tarball
+        working-directory: mcp-server
+        run: npm pack
+
+      - name: Upload mcp-server dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: co-harmo-mcp-server
+          path: |
+            mcp-server/dist/**
+            mcp-server/package.json
+            mcp-server/README.md
+            mcp-server/co-harmo-mcp-*.tgz
+          if-no-files-found: error
+          retention-days: 14
 
   m2-smoke:
     name: M2 Smoke (macOS headless)
