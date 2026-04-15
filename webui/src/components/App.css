@@ -1,0 +1,33 @@
+.app {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #a78bfa;
+}
+
+.status {
+  font-size: 0.875rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status.disconnected {
+  background: #3f3f46;
+  color: #a1a1aa;
+}
+
+.status.connected {
+  background: #14532d;
+  color: #86efac;
+}

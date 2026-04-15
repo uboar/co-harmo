@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  plugin-macos:
+    name: Plugin (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Configure
+        run: cmake --preset mac-debug
+
+      - name: Build
+        run: cmake --build --preset mac-debug
+
+  plugin-windows:
+    name: Plugin (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja
+        run: choco install ninja --no-progress
+
+      - name: Configure
+        run: cmake --preset win-debug
+
+      - name: Build
+        run: cmake --build --preset win-debug
+
+  webui:
+    name: WebUI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+
+      - name: Install
+        working-directory: webui
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: webui
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: webui
+        run: npm run build
+
+  mcp-server:
+    name: MCP Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+
+      - name: Install
+        working-directory: mcp-server
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: mcp-server
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: mcp-server
+        run: npm run build
+
+      - name: Test
+        working-directory: mcp-server
+        run: npm test

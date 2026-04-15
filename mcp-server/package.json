@@ -1,0 +1,31 @@
+{
+  "name": "co-harmo-mcp",
+  "version": "0.1.0",
+  "description": "MCP server bridging Claude Code / Codex to the co-harmo DAW plugin",
+  "type": "module",
+  "bin": {
+    "co-harmo-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
