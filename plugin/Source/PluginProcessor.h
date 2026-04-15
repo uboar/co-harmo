@@ -1,5 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "SessionState.h"
+#include "LocalBridgeServer.h"
 
 class CoHarmoAudioProcessor : public juce::AudioProcessor
 {
@@ -30,6 +32,14 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    SessionState& getSessionState() { return sessionState_; }
+
 private:
+    void writeBridgeJson();
+    void deleteBridgeJson();
+
+    SessionState      sessionState_;
+    LocalBridgeServer bridgeServer_;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CoHarmoAudioProcessor)
 };

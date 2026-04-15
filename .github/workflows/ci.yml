@@ -88,3 +88,45 @@ jobs:
       - name: Test
         working-directory: mcp-server
         run: npm test
+
+  m2-smoke:
+    name: M2 Smoke (macOS headless)
+    runs-on: macos-latest
+    needs: [plugin-macos, webui, mcp-server]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            webui/package-lock.json
+            mcp-server/package-lock.json
+
+      - name: Build plugin
+        run: |
+          cmake --preset mac-debug
+          cmake --build --preset mac-debug
+
+      - name: Build mcp-server
+        working-directory: mcp-server
+        run: npm ci && npm run build
+
+      - name: Build webui
+        working-directory: webui
+        run: npm ci && npm run build
+
+      - name: Launch Standalone and probe
+        # continue-on-error is set at job level; headless audio init may fail
+        # on GitHub runners — bridge.json absence is the expected failure mode.
+        run: bash scripts/m2-smoke.sh
+        env:
+          # Skip build steps since artifacts are already built above
+          M2_SKIP_BUILD: "1"

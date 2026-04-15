@@ -3,24 +3,17 @@ import type { MidiTextCodec, MidiClip } from "./MidiTextCodec.js";
 
 describe("MidiTextCodec interface", () => {
   it("is satisfied by a stub implementation", () => {
-    const stub: MidiTextCodec = {
-      encode: (_clip: MidiClip) => "",
-      decode: (_text: string) => ({
-        ppq: 480,
-        temposBpm: [120],
-        timeSignatures: [{ numerator: 4, denominator: 4 }],
-        events: [],
-      }),
-    };
-
-    const clip: MidiClip = {
+    const emptyClip: MidiClip = {
       ppq: 480,
-      temposBpm: [120],
-      timeSignatures: [{ numerator: 4, denominator: 4 }],
+      tempo: 120,
+      timeSignature: [4, 4],
       events: [],
     };
-
-    expect(stub.encode(clip)).toBe("");
+    const stub: MidiTextCodec = {
+      encode: (_clip: MidiClip) => "",
+      decode: (_text: string) => emptyClip,
+    };
+    expect(stub.encode(emptyClip)).toBe("");
     expect(stub.decode("").ppq).toBe(480);
   });
 });

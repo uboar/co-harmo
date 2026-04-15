@@ -40,6 +40,8 @@ target_sources(co-harmo
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
+        Source/SessionState.cpp
+        Source/LocalBridgeServer.cpp
 )
 
 target_compile_definitions(co-harmo
