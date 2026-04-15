@@ -2,6 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { CoHarmoBridgeClient } from "../bridgeClient.js";
 import { abcCodec, AbcParseError } from "../codec/abcCodec.js";
+import { summarizeClip } from "../summarize.js";
+import { diffClips } from "../clipDiff.js";
 import type { MidiClip } from "../codec/MidiTextCodec.js";
 
 export function registerTools(server: McpServer, bridge: CoHarmoBridgeClient): void {
@@ -142,6 +144,77 @@ export function registerTools(server: McpServer, bridge: CoHarmoBridgeClient): v
           isError: true,
         };
       }
+    }
+  );
+
+  server.tool(
+    "summarize_clip",
+    "Get a compact per-bar digest of the current clip (~2KB for 32 bars). Use this before read_clip_as_abc to decide which bars to fetch.",
+    {
+      maxBars: z.number().int().positive().optional()
+        .describe("Maximum bars to include in digest (default 32)"),
+    },
+    async ({ maxBars }) => {
+      try {
+        const clipData = await bridge.readClip();
+        const clip: MidiClip = {
+          ppq: clipData.ppq,
+          tempo: clipData.tempo,
+          timeSignature: clipData.timeSignature,
+          events: clipData.events,
+        };
+        const summary = summarizeClip(clip, maxBars ?? 32);
+        // Emit compact form to keep Agent context usage low
+        const output = {
+          totalBars: summary.totalBars,
+          bpm: summary.bpm,
+          timeSignature: summary.timeSignature,
+          trackHint: summary.trackHint,
+          barDigest: summary.barDigestCompact,
+        };
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(output) }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "diff_clip_abc",
+    "Compute a note-level diff between two extended-ABC strings and return a unified diff with a human-readable summary.",
+    {
+      before: z.string().describe("Original ABC notation"),
+      after:  z.string().describe("Modified ABC notation"),
+    },
+    async ({ before, after }) => {
+      let beforeClip: MidiClip, afterClip: MidiClip;
+      try {
+        beforeClip = abcCodec.decode(before);
+      } catch (err) {
+        const msg = err instanceof AbcParseError
+          ? `Parse error in 'before' at line ${err.line}, col ${err.col}: ${err.message}`
+          : `Decode error in 'before': ${err instanceof Error ? err.message : String(err)}`;
+        return { content: [{ type: "text" as const, text: msg }], isError: true };
+      }
+      try {
+        afterClip = abcCodec.decode(after);
+      } catch (err) {
+        const msg = err instanceof AbcParseError
+          ? `Parse error in 'after' at line ${err.line}, col ${err.col}: ${err.message}`
+          : `Decode error in 'after': ${err instanceof Error ? err.message : String(err)}`;
+        return { content: [{ type: "text" as const, text: msg }], isError: true };
+      }
+
+      const result = diffClips(beforeClip, afterClip);
+      const text = `${result.summary}\n\n${result.unifiedDiff}`;
+      return {
+        content: [{ type: "text" as const, text }],
+      };
     }
   );
 }
