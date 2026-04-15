@@ -38,9 +38,20 @@ export interface ClipResult {
   timeSignature: [number, number]
 }
 
+export interface PendingClip {
+  undoToken: string
+  eventCount: number
+  tempMidiPath: string
+  createdAt: string
+}
+
+export interface ListPendingResult {
+  pending: PendingClip[]
+}
+
 // Native interface injected by the JUCE WebBrowserComponent
 export interface CoHarmoNative {
-  startMidiDrag(path: string): void
+  startMidiDrag(undoToken: string): void
   getSession(): Promise<SessionResult>
   wsEndpoint?: string
 }
@@ -151,6 +162,28 @@ export class CoHarmoBridge {
     }
     return this.call<ClipResult>('read_clip')
   }
+
+  async listPending(): Promise<PendingClip[]> {
+    if (!this.ws || this.status === 'disconnected') {
+      return MOCK_PENDING
+    }
+    const res = await this.call<ListPendingResult>('list_pending')
+    return res.pending
+  }
+
+  async acceptPending(undoToken: string): Promise<void> {
+    if (!this.ws || this.status === 'disconnected') return
+    await this.call<unknown>('accept_clip', { undoToken })
+  }
+
+  async revertPending(undoToken: string): Promise<void> {
+    if (!this.ws || this.status === 'disconnected') return
+    await this.call<unknown>('revert_clip', { undoToken })
+  }
+
+  startMidiDrag(undoToken: string): void {
+    window.coharmo?.startMidiDrag(undoToken)
+  }
 }
 
 // Mock data used when VITE_MOCK=1 or native bridge is unavailable
@@ -163,6 +196,21 @@ export const MOCK_SESSION: SessionResult = {
   hasClip: true,
   clipLengthBars: 4,
 }
+
+export const MOCK_PENDING: PendingClip[] = [
+  {
+    undoToken: 'tok-abc123def456',
+    eventCount: 16,
+    tempMidiPath: '/tmp/co-harmo/mock-session-0000/tok-abc123def456.mid',
+    createdAt: new Date(Date.now() - 45000).toISOString(),
+  },
+  {
+    undoToken: 'tok-789ghijkl012',
+    eventCount: 8,
+    tempMidiPath: '/tmp/co-harmo/mock-session-0000/tok-789ghijkl012.mid',
+    createdAt: new Date(Date.now() - 5000).toISOString(),
+  },
+]
 
 export const MOCK_CLIP: ClipResult = {
   sessionId: 'mock-session-0000',

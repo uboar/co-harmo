@@ -46,6 +46,11 @@
   color: #fde68a;
 }
 
+.status-pill.has-pending {
+  background: #1e3a5f;
+  color: #93c5fd;
+}
+
 .card {
   background: #27272a;
   border: 1px solid #3f3f46;
@@ -110,6 +115,92 @@
 
 .events-table tr:hover td {
   background: #3f3f46;
+}
+
+.section-title {
+  font-size: 0.75rem;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.pending-card {
+  gap: 6px;
+}
+
+.pending-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #3f3f46;
+}
+
+.pending-row:last-child {
+  border-bottom: none;
+}
+
+.pending-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pending-token {
+  color: #e4e4e7;
+  font-size: 0.8rem;
+}
+
+.pending-meta {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.pending-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.drag-btn {
+  background: #3f3f46;
+  color: #a1a1aa;
+}
+
+.drag-btn:hover {
+  background: #52525b;
+  color: #e4e4e7;
+}
+
+.accept-btn {
+  background: #14532d;
+  color: #86efac;
+}
+
+.accept-btn:hover {
+  background: #166534;
+}
+
+.revert-btn {
+  background: #450a0a;
+  color: #fca5a5;
+}
+
+.revert-btn:hover {
+  background: #7f1d1d;
 }
 
 .refresh-btn {

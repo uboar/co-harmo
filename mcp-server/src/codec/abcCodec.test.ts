@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { abcCodec } from "./abcCodec.js";
+import { abcCodec, AbcParseError } from "./abcCodec.js";
 import type { MidiClip } from "./MidiTextCodec.js";
 
 const BASE_CLIP: MidiClip = {
@@ -13,6 +13,16 @@ function clip(events: MidiClip["events"], overrides: Partial<MidiClip> = {}): Mi
   return { ...BASE_CLIP, ...overrides, events };
 }
 
+/** Encode → decode → encode stability check. */
+function roundTripStable(c: MidiClip): void {
+  const abc1 = abcCodec.encode(c);
+  const decoded = abcCodec.decode(abc1);
+  const abc2 = abcCodec.encode(decoded);
+  expect(abc2).toBe(abc1);
+}
+
+// ─── encode ─────────────────────────────────────────────────────────────────
+
 describe("abcCodec.encode", () => {
   it("produces a valid ABC header for an empty clip", () => {
     const abc = abcCodec.encode(BASE_CLIP);
@@ -24,13 +34,10 @@ describe("abcCodec.encode", () => {
   });
 
   it("encodes a single middle-C quarter note (MIDI 60, 1 bar)", () => {
-    // tickOn=0, tickOff=480 (1 quarter at ppq=480) = 4 sixteenth units
     const abc = abcCodec.encode(
       clip([{ tickOn: 0, tickOff: 480, pitch: 60, vel: 80, channel: 0 }])
     );
-    // C4 = uppercase C, duration 4 sixteenths
     expect(abc).toContain("C4");
-    // no velocity decoration because vel=80 is the default
     expect(abc).not.toContain("!v");
   });
 
@@ -47,13 +54,11 @@ describe("abcCodec.encode", () => {
       { tickOn: 480, tickOff: 960, pitch: 62, vel: 100, channel: 0 },
     ];
     const abc = abcCodec.encode(clip(events));
-    // !v100! should appear once, not twice
     const count = (abc.match(/!v100!/g) ?? []).length;
     expect(count).toBe(1);
   });
 
   it("emits microtiming decoration when tickOn is off-grid", () => {
-    // tickOn=10 ticks early (quantized = 0, offset = +10)
     const abc = abcCodec.encode(
       clip([{ tickOn: 10, tickOff: 490, pitch: 60, vel: 80, channel: 0 }])
     );
@@ -102,17 +107,16 @@ describe("abcCodec.encode", () => {
   });
 
   it("fills rests between notes", () => {
-    // Two quarter notes separated by a quarter rest
     const events: MidiClip["events"] = [
       { tickOn: 0, tickOff: 480, pitch: 60, vel: 80, channel: 0 },
       { tickOn: 960, tickOff: 1440, pitch: 62, vel: 80, channel: 0 },
     ];
     const abc = abcCodec.encode(clip(events));
-    expect(abc).toContain("z4"); // quarter rest between them
+    expect(abc).toContain("z4");
   });
 
   it("snapshot: C major scale 1/8 notes", () => {
-    const pitches = [60, 62, 64, 65, 67, 69, 71, 72]; // C D E F G A B c
+    const pitches = [60, 62, 64, 65, 67, 69, 71, 72];
     const events: MidiClip["events"] = pitches.map((pitch, i) => ({
       tickOn: i * 240,
       tickOff: (i + 1) * 240,
@@ -121,7 +125,6 @@ describe("abcCodec.encode", () => {
       channel: 0,
     }));
     const abc = abcCodec.encode(clip(events, { ppq: 480 }));
-    // Each eighth note = 2 sixteenths → suffix "2"
     expect(abc).toContain("C2");
     expect(abc).toContain("D2");
     expect(abc).toContain("E2");
@@ -133,8 +136,96 @@ describe("abcCodec.encode", () => {
   });
 });
 
+// ─── decode ──────────────────────────────────────────────────────────────────
+
 describe("abcCodec.decode", () => {
-  it("throws not-implemented in M2", () => {
-    expect(() => abcCodec.decode("X:1")).toThrow("not implemented");
+  it("parses header fields correctly", () => {
+    const abc = "X:1\nT:test\nM:3/4\nL:1/16\nQ:1/4=90\nK:C\nz12 |]";
+    const c = abcCodec.decode(abc);
+    expect(c.tempo).toBe(90);
+    expect(c.timeSignature).toEqual([3, 4]);
+    expect(c.ppq).toBe(480);
+  });
+
+  it("decodes a single quarter note C4", () => {
+    const abc = "X:1\nT:t\nM:4/4\nL:1/16\nQ:1/4=120\nK:C\nC4z12 |]";
+    const c = abcCodec.decode(abc);
+    expect(c.events).toHaveLength(1);
+    expect(c.events[0]!.pitch).toBe(60);
+    expect(c.events[0]!.tickOff - c.events[0]!.tickOn).toBe(4 * 120); // 4 sixteenths * 120 ticks
+  });
+
+  it("decodes velocity decoration and applies running default", () => {
+    const abc = "X:1\nT:t\nM:4/4\nL:1/16\nQ:1/4=120\nK:C\n!v100!C4D4z8 |]";
+    const c = abcCodec.decode(abc);
+    expect(c.events[0]!.vel).toBe(100);
+    expect(c.events[1]!.vel).toBe(100); // running default carries over
+  });
+
+  it("throws AbcParseError for invalid velocity value", () => {
+    const abc = "X:1\nT:t\nM:4/4\nL:1/16\nQ:1/4=120\nK:C\n!v300!C4 |]";
+    expect(() => abcCodec.decode(abc)).toThrow(AbcParseError);
+    try {
+      abcCodec.decode(abc);
+    } catch (e) {
+      expect(e).toBeInstanceOf(AbcParseError);
+      expect((e as AbcParseError).message).toMatch(/velocity out of range/);
+    }
+  });
+
+  it("decodes lowercase note as octave 5 (c = C5 = MIDI 72)", () => {
+    const abc = "X:1\nT:t\nM:4/4\nL:1/16\nQ:1/4=120\nK:C\nc4z12 |]";
+    const c = abcCodec.decode(abc);
+    expect(c.events[0]!.pitch).toBe(72);
+  });
+
+  it("decodes comma octave modifier (C, = C3 = MIDI 48)", () => {
+    const abc = "X:1\nT:t\nM:4/4\nL:1/16\nQ:1/4=120\nK:C\nC,4z12 |]";
+    const c = abcCodec.decode(abc);
+    expect(c.events[0]!.pitch).toBe(48);
+  });
+
+  it("decodes sharp (^C = C#4 = MIDI 61)", () => {
+    const abc = "X:1\nT:t\nM:4/4\nL:1/16\nQ:1/4=120\nK:C\n^C4z12 |]";
+    const c = abcCodec.decode(abc);
+    expect(c.events[0]!.pitch).toBe(61);
+  });
+});
+
+// ─── round-trip stability ────────────────────────────────────────────────────
+
+describe("abcCodec round-trip (encode → decode → encode = stable)", () => {
+  it("fixture 1: single note", () => {
+    roundTripStable(clip([{ tickOn: 0, tickOff: 480, pitch: 60, vel: 80, channel: 0 }]));
+  });
+
+  it("fixture 2: C major scale 16th notes", () => {
+    const pitches = [60, 62, 64, 65, 67, 69, 71, 72];
+    const events: MidiClip["events"] = pitches.map((pitch, i) => ({
+      tickOn: i * 120,
+      tickOff: (i + 1) * 120,
+      pitch,
+      vel: 80,
+      channel: 0,
+    }));
+    roundTripStable(clip(events));
+  });
+
+  it("fixture 3: velocity changes mid-bar", () => {
+    const events: MidiClip["events"] = [
+      { tickOn: 0,   tickOff: 120,  pitch: 60, vel: 100, channel: 0 },
+      { tickOn: 120, tickOff: 240,  pitch: 62, vel: 64,  channel: 0 },
+      { tickOn: 240, tickOff: 360,  pitch: 64, vel: 64,  channel: 0 },
+      { tickOn: 360, tickOff: 480,  pitch: 65, vel: 80,  channel: 0 },
+    ];
+    roundTripStable(clip(events));
+  });
+
+  it("fixture 4: microtiming offsets", () => {
+    const events: MidiClip["events"] = [
+      { tickOn: 5,   tickOff: 125,  pitch: 60, vel: 80, channel: 0 },
+      { tickOn: 120, tickOff: 240,  pitch: 62, vel: 80, channel: 0 },
+    ];
+    roundTripStable(clip(events));
   });
 });

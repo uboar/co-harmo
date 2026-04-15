@@ -2,8 +2,29 @@
 
 CoHarmoAudioProcessorEditor::CoHarmoAudioProcessorEditor (CoHarmoAudioProcessor& p)
     : AudioProcessorEditor (&p),
+      processor_ (p),
       webView (juce::WebBrowserComponent::Options{}
-                   .withNativeIntegrationEnabled (true))
+                   .withNativeIntegrationEnabled (true)
+                   .withNativeFunction (
+                       "startMidiDrag",
+                       [this] (const juce::Array<juce::var>& args,
+                               juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                       {
+                           juce::String token = args.isEmpty() ? juce::String() : args[0].toString();
+                           juce::String path  = processor_.getSessionState().getTempMidiPath (token);
+
+                           if (path.isNotEmpty() && juce::File (path).existsAsFile())
+                           {
+                               juce::StringArray files;
+                               files.add (path);
+                               juce::DragAndDropContainer::performExternalDragDropOfFiles (files, false);
+                               completion (juce::var (true));
+                           }
+                           else
+                           {
+                               completion (juce::var (false));
+                           }
+                       }))
 {
     addAndMakeVisible (webView);
     setSize (800, 600);

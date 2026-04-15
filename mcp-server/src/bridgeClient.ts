@@ -35,6 +35,17 @@ export interface ClipData {
   }>;
 }
 
+export interface WriteClipResult {
+  undoToken: string;
+  tempMidiPath: string;
+  eventCount: number;
+}
+
+export interface ReplaceRange {
+  startBar: number;
+  endBar: number;
+}
+
 function bridgeJsonPath(): string {
   const platform = process.platform;
   if (platform === "win32") {
@@ -197,6 +208,17 @@ export class CoHarmoBridgeClient {
 
   async readClip(): Promise<ClipData> {
     return this.call<ClipData>("read_clip");
+  }
+
+  async writeClip(clip: ClipData, replaceRange?: ReplaceRange): Promise<WriteClipResult> {
+    return this.call<WriteClipResult>("write_clip", {
+      clip,
+      ...(replaceRange ? { replaceRange } : {}),
+    });
+  }
+
+  async revertClip(undoToken: string): Promise<void> {
+    await this.call<unknown>("revert_clip", { undoToken });
   }
 
   close(): void {

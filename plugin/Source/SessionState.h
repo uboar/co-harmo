@@ -2,6 +2,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 #include <mutex>
+#include <vector>
 
 struct ClipData
 {
@@ -14,14 +15,25 @@ struct ClipData
     int    timeSigDen  = 4;
 };
 
+struct PendingEntry
+{
+    juce::String              undoToken;
+    juce::MidiMessageSequence events;
+    int                       ppq         = 480;
+    double                    bpm         = 120.0;
+    int                       timeSigNum  = 4;
+    int                       timeSigDen  = 4;
+    juce::String              tempMidiPath;
+    juce::String              createdAt;
+    bool                      accepted    = false;
+};
+
 class SessionState
 {
 public:
     SessionState();
 
-    // Called from audio thread — appends events captured in one processBlock call.
-    // clipStartPpq: the ppq position of the first event in this batch.
-    // maxBars: oldest events beyond this bar count are trimmed.
+    // Audio-thread: appends captured MIDI events (rolling 32-bar window).
     void appendMidiEvents (const juce::MidiMessageSequence& batch,
                            double clipStartPpq,
                            double bpm,
@@ -29,17 +41,37 @@ public:
                            int timeSigDen,
                            int maxBars = 32);
 
-    // Called from any thread — returns a snapshot copy.
+    // Any thread — snapshot of the live captured clip.
     ClipData getClipSnapshot() const;
-
     bool hasClip() const;
+
+    // Pending clip layer (M3).
+    // Stages a new pending clip; writes a .mid to tmpDir/<undoToken>.mid.
+    // Returns the undoToken, or empty string on failure.
+    juce::String stagePending (const juce::MidiMessageSequence& events,
+                               int ppq, double bpm, int timeSigNum, int timeSigDen);
+
+    void acceptPending  (const juce::String& undoToken);
+    void revertPending  (const juce::String& undoToken);
+
+    // Returns snapshot list (safe to call from any thread).
+    std::vector<PendingEntry> listPending() const;
+
+    // Returns the tempMidiPath for a given token (empty if not found).
+    juce::String getTempMidiPath (const juce::String& undoToken) const;
+
+    // Deletes the whole tmp session directory (call from plugin destructor).
+    void cleanupTmpDir();
 
     // Immutable session identity set at construction.
     juce::String sessionId;
     double sampleRate = 44100.0;
 
 private:
-    mutable std::mutex mutex_;
-    ClipData           clip_;
-    bool               hasClip_ = false;
+    juce::File tmpDir() const;
+
+    mutable std::mutex        mutex_;
+    ClipData                  clip_;
+    bool                      hasClip_  = false;
+    std::vector<PendingEntry> pending_;
 };

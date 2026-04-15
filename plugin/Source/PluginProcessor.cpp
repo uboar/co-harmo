@@ -20,6 +20,7 @@ CoHarmoAudioProcessor::~CoHarmoAudioProcessor()
 {
     bridgeServer_.stop();
     deleteBridgeJson();
+    sessionState_.cleanupTmpDir();
 }
 
 void CoHarmoAudioProcessor::prepareToPlay (double sampleRate, int)

@@ -366,6 +366,81 @@ juce::String LocalBridgeServer::handleRequest (const juce::String& json, bool& a
         return buildResult (id, juce::var (obj));
     }
 
+    if (method == "write_clip")
+    {
+        auto clip       = params["clip"];
+        int  ppq        = clip["ppq"].isInt() ? (int)clip["ppq"] : 480;
+        double bpm      = clip["tempo"].isDouble() ? (double)clip["tempo"]
+                          : (clip["tempo"].isInt() ? (double)(int)clip["tempo"] : 120.0);
+        int tsNum = 4, tsDen = 4;
+        if (auto* tsArr = clip["timeSignature"].getArray())
+        {
+            if (tsArr->size() >= 2) { tsNum = (int)(*tsArr)[0]; tsDen = (int)(*tsArr)[1]; }
+        }
+
+        juce::MidiMessageSequence seq;
+        if (auto* evArr = clip["events"].getArray())
+        {
+            for (auto& ev : *evArr)
+            {
+                int tickOn  = ev["tickOn"].isInt()  ? (int)ev["tickOn"]  : 0;
+                int tickOff = ev["tickOff"].isInt() ? (int)ev["tickOff"] : tickOn + ppq;
+                int pitch   = ev["pitch"].isInt()   ? (int)ev["pitch"]   : 60;
+                int vel     = ev["vel"].isInt()     ? (int)ev["vel"]     : 80;
+                int ch      = ev["channel"].isInt() ? (int)ev["channel"] : 1;
+                seq.addEvent (juce::MidiMessage::noteOn  (ch, pitch, (uint8_t)vel),  (double)tickOn);
+                seq.addEvent (juce::MidiMessage::noteOff (ch, pitch, (uint8_t)0),    (double)tickOff);
+            }
+        }
+        seq.updateMatchedPairs();
+
+        juce::String token = state_.stagePending (seq, ppq, bpm, tsNum, tsDen);
+        if (token.isEmpty())
+            return buildError (id, -32000, "Failed to write MIDI file");
+
+        auto* res = new juce::DynamicObject();
+        res->setProperty ("undoToken",    token);
+        res->setProperty ("tempMidiPath", state_.getTempMidiPath (token));
+        return buildResult (id, juce::var (res));
+    }
+
+    if (method == "accept_clip")
+    {
+        juce::String token = params["undoToken"].toString();
+        if (token.isEmpty())
+            return buildError (id, -32602, "undoToken required");
+        state_.acceptPending (token);
+        return buildResult (id, juce::var (new juce::DynamicObject()));
+    }
+
+    if (method == "revert_clip")
+    {
+        juce::String token = params["undoToken"].toString();
+        if (token.isEmpty())
+            return buildError (id, -32602, "undoToken required");
+        state_.revertPending (token);
+        return buildResult (id, juce::var (new juce::DynamicObject()));
+    }
+
+    if (method == "list_pending")
+    {
+        auto entries = state_.listPending();
+        juce::Array<juce::var> arr;
+        for (const auto& e : entries)
+        {
+            auto* obj = new juce::DynamicObject();
+            obj->setProperty ("undoToken",    e.undoToken);
+            obj->setProperty ("eventCount",   e.events.getNumEvents());
+            obj->setProperty ("tempMidiPath", e.tempMidiPath);
+            obj->setProperty ("createdAt",    e.createdAt);
+            obj->setProperty ("accepted",     e.accepted);
+            arr.add (juce::var (obj));
+        }
+        auto* res = new juce::DynamicObject();
+        res->setProperty ("pending", arr);
+        return buildResult (id, juce::var (res));
+    }
+
     return buildError (id, -32601, "Method not found: " + method);
 }
 

@@ -130,3 +130,43 @@ jobs:
         env:
           # Skip build steps since artifacts are already built above
           M2_SKIP_BUILD: "1"
+
+  m3-smoke:
+    name: M3 Smoke — write/accept/revert (macOS headless)
+    runs-on: macos-latest
+    needs: [plugin-macos, webui, mcp-server]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            webui/package-lock.json
+            mcp-server/package-lock.json
+
+      - name: Build plugin
+        run: |
+          cmake --preset mac-debug
+          cmake --build --preset mac-debug
+
+      - name: Build mcp-server
+        working-directory: mcp-server
+        run: npm ci && npm run build
+
+      - name: Build webui
+        working-directory: webui
+        run: npm ci && npm run build
+
+      - name: Launch Standalone and run M3 probe
+        # continue-on-error at job level; headless launch may not initialise audio.
+        run: bash scripts/m3-smoke.sh
+        env:
+          M2_SKIP_BUILD: "1"
