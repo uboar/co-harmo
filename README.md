@@ -1,5 +1,7 @@
 # co-harmo
 
+> Languages / 言語: **English** | [日本語](./README.ja.md)
+
 co-harmo is a VST3/AU plugin that lets Claude Code, Codex, and other AI agents participate in music production directly inside your DAW. The plugin exposes the current MIDI clip over a local MCP server so an agent can read, reason about, and rewrite MIDI using a token-efficient text representation — without touching raw binary MIDI or requiring any DAW-specific scripting.
 
 ---
