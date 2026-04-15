@@ -31,9 +31,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Ninja
-        run: choco install ninja --no-progress
-
       - name: Configure
         run: cmake --preset win-debug
 

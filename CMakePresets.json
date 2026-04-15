@@ -25,20 +25,16 @@
     {
       "name": "win-debug",
       "displayName": "Windows Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/win-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/win-debug"
     },
     {
       "name": "win-release",
       "displayName": "Windows Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/win-release",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/win-release"
     }
   ],
   "buildPresets": [
@@ -52,11 +48,13 @@
     },
     {
       "name": "win-debug",
-      "configurePreset": "win-debug"
+      "configurePreset": "win-debug",
+      "configuration": "Debug"
     },
     {
       "name": "win-release",
-      "configurePreset": "win-release"
+      "configurePreset": "win-release",
+      "configuration": "Release"
     }
   ]
 }
